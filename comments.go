@@ -317,6 +317,7 @@ type Comment struct {
 
 func (c *Comment) setValues(inst *Instagram) {
 	c.User.inst = inst
+	c.inst = inst
 	for i := range c.OtherPreviewUsers {
 		c.OtherPreviewUsers[i].inst = inst
 	}

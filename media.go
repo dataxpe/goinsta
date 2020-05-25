@@ -369,6 +369,16 @@ func (item *Item) Delete() error {
 	return err
 }
 
+// SyncComments fetch comments of a media
+//
+// This function updates Item.Comments value
+func (item *Item) SyncComments() error {
+	item.Comments = newComments(item)
+	item.Comments.Sync()
+	item.Comments.Next()
+	return nil
+}
+
 // SyncLikers fetch new likers of a media
 //
 // This function updates Item.Likers value

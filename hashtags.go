@@ -124,17 +124,17 @@ func (h *Hashtag) Error() error {
 }
 
 // Stories returns hashtag stories.
-func (h *Hashtag) Stories() (*StoryMedia, error) {
+func (h *Hashtag) Stories() (*Reel, error) {
 	body, err := h.inst.sendSimpleRequest(
 		urlTagStories, h.Name,
 	)
 	if err == nil {
 		var resp struct {
-			Story  StoryMedia `json:"story"`
-			Status string     `json:"status"`
+			Reel Reel 		`json:"story"`
+			Status string	`json:"status"`
 		}
 		err = json.Unmarshal(body, &resp)
-		return &resp.Story, err
+		return &resp.Reel, err
 	}
 	return nil, err
 }

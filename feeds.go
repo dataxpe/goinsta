@@ -93,7 +93,7 @@ type FeedTag struct {
 	NextID              string     `json:"next_max_id"`
 	MoreAvailable       bool       `json:"more_available"`
 	AutoLoadMoreEnabled bool       `json:"auto_load_more_enabled"`
-	Story               StoryMedia `json:"story"`
+	Reel				Reel 		`json:"story"`
 	Status              string     `json:"status"`
 }
 

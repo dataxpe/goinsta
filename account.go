@@ -269,11 +269,11 @@ func (account *Account) Feed(params ...interface{}) *FeedMedia {
 
 // Stories returns account stories.
 //
-// Use StoryMedia.Next for pagination.
+// Use Reel.Next for pagination.
 //
 // See example: examples/account/stories.go
-func (account *Account) Stories() *StoryMedia {
-	media := &StoryMedia{}
+func (account *Account) Stories() *Reel {
+	media := &Reel{}
 	media.uid = account.ID
 	media.inst = account.inst
 	media.endpoint = urlUserStories

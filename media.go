@@ -401,7 +401,6 @@ func (item *Item) Delete() error {
 func (item *Item) SyncComments() error {
 	item.Comments = newComments(item)
 	item.Comments.Sync()
-	item.Comments.Next()
 	return nil
 }
 

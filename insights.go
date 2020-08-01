@@ -110,6 +110,10 @@ func (ins *Insights) DisplayURL() string {
 	return ins.Data.Media.DisplayURL
 }
 
+func (ins *Insights) IsActive() bool {
+	return ins.Data.Media.InlineInsightsNode.State == "AVAILABLE"
+}
+
 func (ins *Insights) ProfileActionBioLinkClicked() int {
 	for _, a := range ins.Data.Media.InlineInsightsNode.Metrics.ProfileActions.Actions.Nodes {
 		if a.Name == "BIO_LINK_CLICKED" {
@@ -202,6 +206,24 @@ func (ins *Insights) ImpressionsFromProfile() int {
 func (ins *Insights) ImpressionsFromHashtags() int {
 	for _, a := range ins.Data.Media.InlineInsightsNode.Metrics.Impressions.Surfaces.Nodes {
 		if a.Name == "HASHTAG" {
+			return a.Value
+		}
+	}
+	return 0
+}
+
+func (ins *Insights) ImpressionsFromExplore() int {
+	for _, a := range ins.Data.Media.InlineInsightsNode.Metrics.Impressions.Surfaces.Nodes {
+		if a.Name == "EXPLORE" {
+			return a.Value
+		}
+	}
+	return 0
+}
+
+func (ins *Insights) ImpressionsFromLocation() int {
+	for _, a := range ins.Data.Media.InlineInsightsNode.Metrics.Impressions.Surfaces.Nodes {
+		if a.Name == "LOCATION" {
 			return a.Value
 		}
 	}

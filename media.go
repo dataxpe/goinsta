@@ -342,7 +342,7 @@ func GetBest(obj interface{}) string {
 	return m.url
 }
 
-var rxpTags = regexp.MustCompile(`#\w+`)
+var rxpTags = regexp.MustCompile("#[\\p{L}\\d]+")
 
 // Hashtags returns caption hashtags.
 //

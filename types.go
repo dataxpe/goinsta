@@ -10,10 +10,13 @@ import (
 type ConfigFile struct {
 	ID        int64          `json:"id"`
 	User      string         `json:"username"`
+	UserAgent string         `json:"user_agent"`
 	DeviceID  string         `json:"device_id"`
 	UUID      string         `json:"uuid"`
 	RankToken string         `json:"rank_token"`
 	Token     string         `json:"token"`
+	Auth 	  string         `json:"auth"`
+	WWWClaim  string         `json:"www_claim"`
 	PhoneID   string         `json:"phone_id"`
 	Cookies   []*http.Cookie `json:"cookies"`
 }

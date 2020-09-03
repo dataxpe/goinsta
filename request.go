@@ -2,12 +2,16 @@ package goinsta
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -87,17 +91,36 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, err error) {
 		return
 	}
 
-	req.Header.Set("Connection", o.Connection)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	req.Header.Set("Accept-Language", "en-US")
-	req.Header.Set("User-Agent", goInstaUserAgent)
-	req.Header.Set("X-IG-App-ID", fbAnalytics)
-	req.Header.Set("X-IG-Capabilities", igCapabilities)
-	req.Header.Set("X-IG-Connection-Type", connType)
+	req.Header.Set("User-Agent", insta.userAgent)
+	req.Header.Set("X-Ads-Opt-Out", "0")
+	req.Header.Set("X-DEVICE-ID", insta.uuid)
+	req.Header.Set("X-CM-Bandwidth-KBPS", "-1.000")
+	req.Header.Set("X-CM-Latency", "-1.000")
+	req.Header.Set("X-IG-App-Locale", goInstaLanguage)
+	req.Header.Set("X-IG-Device-Locale", goInstaLanguage)
+	req.Header.Set("X-Pigeon-Session-Id", insta.psid)
+	req.Header.Set("X-Pigeon-Rawclienttime", fmt.Sprintf("%d.000",time.Now().Unix())) // 1560144153.925
 	req.Header.Set("X-IG-Connection-Speed", fmt.Sprintf("%dkbps", acquireRand(1000, 3700)))
 	req.Header.Set("X-IG-Bandwidth-Speed-KBPS", "-1.000")
 	req.Header.Set("X-IG-Bandwidth-TotalBytes-B", "0")
 	req.Header.Set("X-IG-Bandwidth-TotalTime-MS", "0")
+	req.Header.Set("X-IG-EU-DC-ENABLED", "0")
+	req.Header.Set("X-IG-Extended-CDN-Thumbnail-Cache-Busting-Value", "1000")
+	req.Header.Set("X-Bloks-Version-Id", goIInstaBloksVersion)
+	req.Header.Set("X-MID", insta.mid)
+	req.Header.Set("X-IG-WWW-Claim", insta.wwwClaim)
+	req.Header.Set("X-Bloks-Is-Layout-RTL", "false")
+	req.Header.Set("X-IG-Connection-Type", connType)
+	req.Header.Set("X-IG-Capabilities", igCapabilities)
+	req.Header.Set("X-IG-App-ID", fbAnalytics)
+	req.Header.Set("X-IG-Device-ID", insta.uuid)
+	req.Header.Set("X-IG-Android-ID", insta.dID)
+	req.Header.Set("Accept-Language", strings.Replace(goInstaLanguage,"_","-",1))
+	req.Header.Set("X-FB-HTTP-Engine", "Liger")
+	req.Header.Set("Authorization", insta.auth)
+	req.Header.Set("Connection", o.Connection)
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 
 	resp, err := insta.c.Do(req)
 	if err != nil {
@@ -109,13 +132,69 @@ func (insta *Instagram) sendRequest(o *reqOptions) (body []byte, err error) {
 	for _, value := range insta.c.Jar.Cookies(u) {
 		if strings.Contains(value.Name, "csrftoken") {
 			insta.token = value.Value
+		} else if strings.ToLower(value.Name) == "mid" {
+			insta.mid = value.Value
 		}
 	}
 
-	body, err = ioutil.ReadAll(resp.Body)
+	if os.Getenv("GOINSTA_DEBUG") != "" {
+		/*
+		j, _ := json.MarshalIndent(req.Header,"< ","\t")
+		fmt.Printf("< ---- SEND HEADER ----\n< %s\n< --------\n\n",j)
+		*/
+
+
+		dumprequest,_ := httputil.DumpRequest(req,false)
+		fmt.Printf("< ----- SEND ----\n%s\n< -----------\n",dumprequest)
+		j, _ := json.MarshalIndent(vs,"> ","\t")
+		fmt.Printf("< ==== POST BODY ====\n< %s\n< =========\n\n\n\n",j)
+
+		//j, _ = json.MarshalIndent(resp.Header,"> ","\t")
+		//fmt.Printf("> ---- RECV HEADER ----\n> %s\n> --------\n\n",j)
+
+		dumpresp ,_ := httputil.DumpResponse(resp,false)
+		fmt.Printf("> ----- RECV ----\n%s\n",dumpresp)
+	}
+
+	if resp.Header.Get("ig-set-authorization") != "" {
+		auth := resp.Header.Get("ig-set-authorization")
+		if auth[len(auth)-1:] != ":" {
+			insta.auth = auth
+		}
+	}
+	if resp.Header.Get("x-ig-set-www-claim") != "" {
+		insta.wwwClaim = resp.Header.Get("x-ig-set-www-claim")
+	}
+	if resp.Header.Get("ig-set-password-encryption-key-id") != "" {
+		insta.pwKeyId = resp.Header.Get("ig-set-password-encryption-key-id")
+	}
+	if resp.Header.Get("ig-set-password-encryption-pub-key") != "" {
+		insta.pwPubKey = resp.Header.Get("ig-set-password-encryption-pub-key")
+	}
+
+	// handle gzip response
+	var reader io.ReadCloser
+	switch resp.Header.Get("Content-Encoding") {
+	case "gzip":
+		reader, err = gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+	default:
+		reader = resp.Body
+	}
+
+	body, err = ioutil.ReadAll(reader)
 	if err == nil {
+		if os.Getenv("GOINSTA_DEBUG") != "" {
+			fmt.Printf("> ==== RECV BODY ====\n> Status: %d %s\n>\n> %s\n> ======\n\n",
+				resp.StatusCode, resp.Status, body)
+		}
+
 		err = isError(resp.StatusCode, body)
 	}
+
 	return body, err
 }
 

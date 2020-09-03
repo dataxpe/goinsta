@@ -3,14 +3,17 @@ package goinsta
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -33,6 +36,8 @@ import (
 type Instagram struct {
 	user string
 	pass string
+	// user-agent: Instagram 107.0.0.27.121 Android (24/7.0; 380dpi; 1080x1920; OnePlus; ONEPLUS A3010; OnePlus3T; qcom; en_US)
+	userAgent string
 	// device id: android-1923fjnma8123
 	dID string
 	// uuid: 8493-1233-4312312-5123
@@ -43,10 +48,26 @@ type Instagram struct {
 	token string
 	// phone id
 	pid string
+	// SessionId
+	//  This is a temporary ID which changes in the official app every time the
+	//  user closes and re-opens the Instagram application or switches account.
+	sid string
+	// pigeonSessionId: 1bf37a34-86ff-5909-865c-0ff95082e698
+	psid string
+	// mid (from cookie)
+	mid string
 	// ads id
 	adid string
 	// challenge URL
 	challengeURL string
+	// auth token we receive
+	auth string
+	// wwwClaim we receive
+	wwwClaim string
+	// pwKeyId
+	pwKeyId string
+	// pwPubKey
+	pwPubKey string
 
 	// Instagram objects
 
@@ -118,16 +139,21 @@ func (inst *Instagram) SetCookieJar(jar http.CookieJar) error {
 
 // New creates Instagram structure
 func New(username, password string) *Instagram {
+	rand.Seed(time.Now().Unix())
 	// this call never returns error
 	jar, _ := cookiejar.New(nil)
 	inst := &Instagram{
 		user: username,
 		pass: password,
+		userAgent: generateUserAgent(),
+		wwwClaim: "0",
 		dID: generateDeviceID(
 			generateMD5Hash(username + password),
 		),
 		uuid: generateUUID(), // both uuid must be differents
 		pid:  generateUUID(),
+		sid: generateUUID(),
+		psid: generateUUID(),
 		c: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -190,10 +216,13 @@ func (inst *Instagram) Export(path string) error {
 	config := ConfigFile{
 		ID:        inst.Account.ID,
 		User:      inst.user,
+		UserAgent: inst.userAgent,
 		DeviceID:  inst.dID,
 		UUID:      inst.uuid,
 		RankToken: inst.rankToken,
 		Token:     inst.token,
+		Auth:      inst.auth,
+		WWWClaim:  inst.wwwClaim,
 		PhoneID:   inst.pid,
 		Cookies:   inst.c.Jar.Cookies(url),
 	}
@@ -215,10 +244,13 @@ func Export(inst *Instagram, writer io.Writer) error {
 	config := ConfigFile{
 		ID:        inst.Account.ID,
 		User:      inst.user,
+		UserAgent: inst.userAgent,
 		DeviceID:  inst.dID,
 		UUID:      inst.uuid,
 		RankToken: inst.rankToken,
 		Token:     inst.token,
+		Auth:      inst.auth,
+		WWWClaim:  inst.wwwClaim,
 		PhoneID:   inst.pid,
 		Cookies:   inst.c.Jar.Cookies(url),
 	}
@@ -258,11 +290,16 @@ func ImportConfig(config ConfigFile) (*Instagram, error) {
 
 	inst := &Instagram{
 		user:      config.User,
+		userAgent: config.UserAgent,
 		dID:       config.DeviceID,
 		uuid:      config.UUID,
 		rankToken: config.RankToken,
 		token:     config.Token,
 		pid:       config.PhoneID,
+		auth:      config.Auth,
+		wwwClaim:  config.WWWClaim,
+		sid: 	   generateUUID(),
+		psid: 	   generateUUID(),
 		c: &http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -274,6 +311,22 @@ func ImportConfig(config ConfigFile) (*Instagram, error) {
 		return inst, err
 	}
 	inst.c.Jar.SetCookies(url, config.Cookies)
+
+	for _, cookie := range inst.c.Jar.Cookies(url) {
+		if strings.ToLower(cookie.Name) == "mid" {
+			inst.mid = cookie.Value
+		}
+	}
+
+	if inst.userAgent == "" {
+		return inst, fmt.Errorf("user_agent missing in session file - please renew file")
+	}
+	if inst.auth == "" {
+		return inst, fmt.Errorf("auth missing in session file - please renew file")
+	}
+	if inst.wwwClaim == "" {
+		return inst, fmt.Errorf("www_claim missing in session file - please renew file")
+	}
 
 	inst.init()
 	inst.Account = &Account{inst: inst, ID: config.ID}
@@ -382,7 +435,8 @@ func (inst *Instagram) Login() error {
 		return err
 	}
 
-	err = inst.syncFeatures()
+	//err = inst.syncFeatures(goInstaExperiments)
+	err = inst.syncFeatures(goInstaLoginExperiments)
 	if err != nil {
 		return err
 	}
@@ -402,17 +456,25 @@ func (inst *Instagram) Login() error {
 		return err
 	}
 
+	enc_pass, err := GenerateEncPassword(inst.pass,inst.pwKeyId,inst.pwPubKey)
+	if err != nil {
+		return err
+	}
+
 	result, err := json.Marshal(
 		map[string]interface{}{
 			"guid":                inst.uuid,
 			"login_attempt_count": 0,
-			"_csrftoken":          inst.token,
+			//"_csrftoken":          inst.token,
 			"device_id":           inst.dID,
 			"adid":                inst.adid,
 			"phone_id":            inst.pid,
 			"username":            inst.user,
-			"password":            inst.pass,
+			//"password":            inst.pass,
+			"enc_password":		   enc_pass,
 			"google_tokens":       "[]",
+			"country_codes":       `{ country_code: "1", source: "default" }`,
+			"jazoest":				GenerateJazoest(inst.pid),
 		},
 	)
 	if err != nil {
@@ -424,6 +486,7 @@ func (inst *Instagram) Login() error {
 			Query:    generateSignature(b2s(result)),
 			IsPost:   true,
 			Login:    true,
+			Connection: "close",
 		},
 	)
 	if err != nil {
@@ -454,11 +517,11 @@ func (inst *Instagram) Logout() error {
 	return err
 }
 
-func (inst *Instagram) syncFeatures() error {
+func (inst *Instagram) syncFeatures(features string) error {
 	data, err := inst.prepareData(
 		map[string]interface{}{
 			"id":          inst.uuid,
-			"experiments": goInstaExperiments,
+			"experiments": features,
 		},
 	)
 	if err != nil {

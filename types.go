@@ -260,7 +260,7 @@ func (tray *Tray) set(inst *Instagram, url string) {
 	for i := range tray.Stories {
 		tray.Stories[i].inst = inst
 		tray.Stories[i].endpoint = url
-		tray.Stories[i].setValues()
+		tray.Stories[i].SetValues()
 	}
 	for i := range tray.Lives.LiveItems {
 		tray.Lives.LiveItems[i].User.inst = inst

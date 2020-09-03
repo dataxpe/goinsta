@@ -705,7 +705,7 @@ func (reel *Reel) instagram() *Instagram {
 	return reel.inst
 }
 
-func (reel *Reel) setValues() {
+func (reel *Reel) SetValues() {
 	for i, _ := range reel.Stories {
 		reel.Stories[i].inst = reel.inst
 		reel.Stories[i].User.inst = reel.inst
@@ -846,7 +846,7 @@ func (reel *Reel) Sync() error {
 			m, ok := resp.Reels[id]
 			if ok {
 				reel.Stories = m.Stories
-				reel.setValues()
+				reel.SetValues()
 				return nil
 			}
 			err = fmt.Errorf("cannot find %s structure in response", id)
@@ -882,7 +882,7 @@ func (reel *Reel) Next(params ...interface{}) bool {
 			reel.inst = insta
 			reel.endpoint = endpoint
 			reel.err = ErrNoMore // TODO: See if stories has pagination
-			reel.setValues()
+			reel.SetValues()
 			return true
 		}
 	}
@@ -966,11 +966,11 @@ func (media *FeedMedia) Sync() error {
 	media.endpoint = urlMediaInfo
 	media.inst = insta
 	media.NextID = id
-	media.setValues()
+	media.SetValues()
 	return err
 }
 
-func (media *FeedMedia) setValues() {
+func (media *FeedMedia) SetValues() {
 	for i := range media.Items {
 		setToItem(&media.Items[i], media)
 	}
@@ -1047,7 +1047,7 @@ func (media *FeedMedia) Next(params ...interface{}) bool {
 			if m.NextID == 0 || !m.MoreAvailable {
 				media.err = ErrNoMore
 			}
-			media.setValues()
+			media.SetValues()
 			return true
 		}
 	}

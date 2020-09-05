@@ -37,6 +37,11 @@ func (users *Users) SetInstagram(inst *Instagram) {
 	users.inst = inst
 }
 
+// SetNextID sets specific NextID to user structure, to continue pagination
+func (users *Users) SetNextID(NextID string) {
+	users.NextID = NextID
+}
+
 // ErrNoMore is an error that comes when there is no more elements available on the list.
 var ErrNoMore = errors.New("List end have been reached")
 

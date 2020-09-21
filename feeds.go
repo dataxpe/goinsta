@@ -54,30 +54,8 @@ type FeedLocation struct {
 // Tags search by Tag in user Feed
 //
 // (sorry for returning FeedTag. See #FeedTag)
-func (feed *Feed) Tags(tag string) (*FeedTag, error) {
-	insta := feed.inst
-	body, err := insta.sendRequest(
-		&reqOptions{
-			Endpoint: fmt.Sprintf(urlFeedTag, tag),
-			Query: map[string]string{
-				"rank_token":     insta.rankToken,
-				"ranked_content": "true",
-			},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	res := &FeedTag{}
-	err = json.Unmarshal(body, res)
-	if err != nil {
-		return nil, err
-	}
-	res.name = tag
-	res.inst = feed.inst
-	res.setValues()
-
-	return res, nil
+func (feed *Feed) Tags(tag string) *FeedTag {
+	return &FeedTag{inst: feed.inst, name: tag}
 }
 
 // FeedTag is the struct that fits the structure returned by instagram on TagSearch.

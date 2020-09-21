@@ -148,6 +148,11 @@ func (ft *FeedTag) Next() bool {
 	return false
 }
 
+// SetNextID sets specific NextID to feedTag structure, to continue pagination
+func (ft *FeedTag) SetNextID(NextID string) {
+	ft.NextID = NextID
+}
+
 //Error returns hashtag error
 func (ft *FeedTag) Error() error {
 	return ft.err
